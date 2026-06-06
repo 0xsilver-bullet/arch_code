@@ -19,8 +19,8 @@ import (
 const systemPrompt = `You are an expert coding assistant operating inside arch_code, a coding agent harness. You help users by answering questions, explaining code, and writing new code.
 
 Available tools:
-- read: Read file contents
-- bash: Execute shell commands
+- read: Read file contents (supports line ranges)
+- bash: Execute shell commands (with optional timeout)
 
 Guidelines:
 - Be concise in your responses
@@ -76,7 +76,7 @@ func main() {
 			stream := client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
 				Model:    "gemma4:31b-cloud",
 				Messages: messages,
-				Tools:    []openai.ChatCompletionToolUnionParam{tools.ReadTool},
+				Tools:    []openai.ChatCompletionToolUnionParam{tools.ReadTool, tools.BashTool},
 			})
 
 			// acc stitches all streaming deltas into a complete ChatCompletion,
@@ -121,18 +121,24 @@ func main() {
 				fmt.Printf("\n[tool: %s %s]\n", tc.Function.Name, tc.Function.Arguments)
 
 				var result string
-				switch tc.Function.Name {
-				case "read":
-					var p tools.ReadParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteRead(cwd, p)
-					}
-
-				default:
-					result = fmt.Sprintf("Unknown tool: %s", tc.Function.Name)
+			switch tc.Function.Name {
+			case "read":
+				var p tools.ReadParams
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+					result = fmt.Sprintf("Error parsing arguments: %v", err)
+				} else {
+					result = tools.ExecuteRead(cwd, p)
 				}
+			case "bash":
+				var p tools.BashParams
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+					result = fmt.Sprintf("Error parsing arguments: %v", err)
+				} else {
+					result = tools.ExecuteBash(cwd, p)
+				}
+			default:
+				result = fmt.Sprintf("Unknown tool: %s", tc.Function.Name)
+			}
 
 				messages = append(messages, openai.ToolMessage(result, tc.ID))
 			}
