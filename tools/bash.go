@@ -23,7 +23,7 @@ const (
 )
 
 type BashParams struct {
-	Command string  `json:"command"`
+	Command string   `json:"command"`
 	Timeout *float64 `json:"timeout,omitempty"`
 }
 
@@ -42,10 +42,10 @@ type truncationResult struct {
 }
 
 type bashResult struct {
-	Output        string
-	ExitCode      *int
-	Cancelled     bool
-	Truncated     bool
+	Output         string
+	ExitCode       *int
+	Cancelled      bool
+	Truncated      bool
 	FullOutputPath string
 }
 
@@ -59,8 +59,8 @@ func truncateTail(content string, maxLines int, maxBytes int) truncationResult {
 			TotalBytes:  0,
 			OutputLines: 0,
 			OutputBytes: 0,
-			MaxLines:     maxLines,
-			MaxBytes:     maxBytes,
+			MaxLines:    maxLines,
+			MaxBytes:    maxBytes,
 		}
 	}
 	totalBytes := len([]byte(content))
@@ -78,9 +78,9 @@ func truncateTail(content string, maxLines int, maxBytes int) truncationResult {
 			TotalLines:  totalLines,
 			TotalBytes:  totalBytes,
 			OutputLines: totalLines,
-			OutputBytes:  totalBytes,
-			MaxLines:     maxLines,
-			MaxBytes:     maxBytes,
+			OutputBytes: totalBytes,
+			MaxLines:    maxLines,
+			MaxBytes:    maxBytes,
 		}
 	}
 
