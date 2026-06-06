@@ -73,6 +73,7 @@ func ExecuteRead(cwd string, p ReadParams) string {
 			len(lines)-lineCount,
 		)
 	}
+	RecordRead(absPath)
 	return result
 }
 

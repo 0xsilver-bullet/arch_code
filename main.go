@@ -21,11 +21,17 @@ const systemPrompt = `You are an expert coding assistant operating inside arch_c
 Available tools:
 - read: Read file contents (supports line ranges)
 - bash: Execute shell commands (with optional timeout)
+- write: Create or overwrite a file with given content; auto-creates parent dirs
+- edit: Exact find-and-replace edit on a single file; supports create/delete/replace; honors replace_all
+- multiedit: Apply multiple sequential find-and-replace edits to one file in a single call
 
 Guidelines:
 - Be concise in your responses
 - Show file paths clearly when working with files
 - When asked to read or analyze a file, always use the read tool
+- You MUST read a file before editing it (edit and multiedit require this). Writing a new file does not require a prior read.
+- For surgical changes, prefer edit (or multiedit for several changes to the same file) over rewriting the whole file with write.
+- old_string in edit/multiedit must match exactly (whitespace, line breaks) and must be unique in the file unless replace_all is true.
 
 Current date: %s
 Current working directory: %s`
@@ -76,7 +82,7 @@ func main() {
 			stream := client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
 				Model:    "gemma4:31b-cloud",
 				Messages: messages,
-				Tools:    []openai.ChatCompletionToolUnionParam{tools.ReadTool, tools.BashTool},
+				Tools:    []openai.ChatCompletionToolUnionParam{tools.ReadTool, tools.BashTool, tools.WriteTool, tools.EditTool, tools.MultiEditTool},
 			})
 
 			// acc stitches all streaming deltas into a complete ChatCompletion,
@@ -121,24 +127,45 @@ func main() {
 				fmt.Printf("\n[tool: %s %s]\n", tc.Function.Name, tc.Function.Arguments)
 
 				var result string
-			switch tc.Function.Name {
-			case "read":
-				var p tools.ReadParams
-				if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-					result = fmt.Sprintf("Error parsing arguments: %v", err)
-				} else {
-					result = tools.ExecuteRead(cwd, p)
+				switch tc.Function.Name {
+				case "read":
+					var p tools.ReadParams
+					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+						result = fmt.Sprintf("Error parsing arguments: %v", err)
+					} else {
+						result = tools.ExecuteRead(cwd, p)
+					}
+				case "bash":
+					var p tools.BashParams
+					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+						result = fmt.Sprintf("Error parsing arguments: %v", err)
+					} else {
+						result = tools.ExecuteBash(cwd, p)
+					}
+				case "write":
+					var p tools.WriteParams
+					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+						result = fmt.Sprintf("Error parsing arguments: %v", err)
+					} else {
+						result = tools.ExecuteWrite(cwd, p)
+					}
+				case "edit":
+					var p tools.EditParams
+					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+						result = fmt.Sprintf("Error parsing arguments: %v", err)
+					} else {
+						result = tools.ExecuteEdit(cwd, p)
+					}
+				case "multiedit":
+					var p tools.MultiEditParams
+					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
+						result = fmt.Sprintf("Error parsing arguments: %v", err)
+					} else {
+						result = tools.ExecuteMultiEdit(cwd, p)
+					}
+				default:
+					result = fmt.Sprintf("Unknown tool: %s", tc.Function.Name)
 				}
-			case "bash":
-				var p tools.BashParams
-				if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-					result = fmt.Sprintf("Error parsing arguments: %v", err)
-				} else {
-					result = tools.ExecuteBash(cwd, p)
-				}
-			default:
-				result = fmt.Sprintf("Unknown tool: %s", tc.Function.Name)
-			}
 
 				messages = append(messages, openai.ToolMessage(result, tc.ID))
 			}
