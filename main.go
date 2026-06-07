@@ -1,40 +1,19 @@
 package main
 
 import (
-	"arch_code/tools"
+	"arch_code/internal/core"
+	"arch_code/internal/tools"
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
-
-const systemPrompt = `You are an expert coding assistant operating inside arch_code, a coding agent harness. You help users by answering questions, explaining code, and writing new code.
-
-Available tools:
-- read: Read file contents (supports line ranges)
-- bash: Execute shell commands (with optional timeout)
-- write: Create or overwrite a file with given content; auto-creates parent dirs
-- edit: Exact find-and-replace edit on a single file; supports create/delete/replace; honors replace_all
-- multiedit: Apply multiple sequential find-and-replace edits to one file in a single call
-
-Guidelines:
-- Be concise in your responses
-- Show file paths clearly when working with files
-- When asked to read or analyze a file, always use the read tool
-- You MUST read a file before editing it (edit and multiedit require this). Writing a new file does not require a prior read.
-- For surgical changes, prefer edit (or multiedit for several changes to the same file) over rewriting the whole file with write.
-- old_string in edit/multiedit must match exactly (whitespace, line breaks) and must be unique in the file unless replace_all is true.
-
-Current date: %s
-Current working directory: %s`
 
 func main() {
 	err := godotenv.Load()
@@ -48,7 +27,6 @@ func main() {
 	}
 
 	cwd, _ := os.Getwd()
-	date := time.Now().Format("2006-01-02")
 
 	client := openai.NewClient(
 		option.WithBaseURL("https://ollama.com/v1"),
@@ -56,7 +34,7 @@ func main() {
 	)
 
 	messages := []openai.ChatCompletionMessageParamUnion{
-		openai.SystemMessage(fmt.Sprintf(systemPrompt, date, cwd)),
+		openai.SystemMessage(core.SystemPrompt()),
 	}
 
 	ctx := context.Background()
@@ -125,48 +103,7 @@ func main() {
 			// Execute each tool call and feed results back
 			for _, tc := range choice.Message.ToolCalls {
 				fmt.Printf("\n[tool: %s %s]\n", tc.Function.Name, tc.Function.Arguments)
-
-				var result string
-				switch tc.Function.Name {
-				case "read":
-					var p tools.ReadParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteRead(cwd, p)
-					}
-				case "bash":
-					var p tools.BashParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteBash(cwd, p)
-					}
-				case "write":
-					var p tools.WriteParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteWrite(cwd, p)
-					}
-				case "edit":
-					var p tools.EditParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteEdit(cwd, p)
-					}
-				case "multiedit":
-					var p tools.MultiEditParams
-					if err := json.Unmarshal([]byte(tc.Function.Arguments), &p); err != nil {
-						result = fmt.Sprintf("Error parsing arguments: %v", err)
-					} else {
-						result = tools.ExecuteMultiEdit(cwd, p)
-					}
-				default:
-					result = fmt.Sprintf("Unknown tool: %s", tc.Function.Name)
-				}
-
+				result := tools.ExecToolCall(tc.Function.Name, tc.Function.Arguments, cwd)
 				messages = append(messages, openai.ToolMessage(result, tc.ID))
 			}
 			// Loop back — send tool results to the model for the next turn
