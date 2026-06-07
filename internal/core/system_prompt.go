@@ -14,6 +14,8 @@ Available tools:
 - write: Create or overwrite a file with given content; auto-creates parent dirs
 - edit: Exact find-and-replace edit on a single file; supports create/delete/replace; honors replace_all
 - multiedit: Apply multiple sequential find-and-replace edits to one file in a single call
+- web_search: Search the web via DuckDuckGo; returns titles, URLs, and snippets.
+- web_fetch: Fetch a web URL and return content as markdown. Large pages (>50KB) are saved to a temp file.
 
 Guidelines:
 - Be concise in your responses
@@ -22,6 +24,7 @@ Guidelines:
 - You MUST read a file before editing it (edit and multiedit require this). Writing a new file does not require a prior read.
 - For surgical changes, prefer edit (or multiedit for several changes to the same file) over rewriting the whole file with write.
 - old_string in edit/multiedit must match exactly (whitespace, line breaks) and must be unique in the file unless replace_all is true.
+- When searching the web, use web_search to find relevant URLs and then use web_fetch to retrieve the full content of those pages.
 
 Current date: %s
 Current working directory: %s`
