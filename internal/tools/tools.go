@@ -44,6 +44,20 @@ func ExecToolCall(name, args, cwd string) string {
 		} else {
 			result = ExecuteMultiEdit(cwd, p)
 		}
+	case "web_search":
+		var p WebSearchParams
+		if err := json.Unmarshal([]byte(args), &p); err != nil {
+			result = fmt.Sprintf("Error parsing arguments: %v", err)
+		} else {
+			result = ExecuteWebSearch(cwd, p)
+		}
+	case "web_fetch":
+		var p WebFetchParams
+		if err := json.Unmarshal([]byte(args), &p); err != nil {
+			result = fmt.Sprintf("Error parsing arguments: %v", err)
+		} else {
+			result = ExecuteWebFetch(cwd, p)
+		}
 	default:
 		result = fmt.Sprintf("Unknown tool: %s", name)
 	}
